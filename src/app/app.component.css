@@ -1,0 +1,103 @@
+﻿:host {
+  display: block;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f8faff 0%, #eef4ff 100%);
+  color: #0f172a;
+  font-family: Inter, Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+button, input { font: inherit; }
+
+.app-shell {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 20px 56px;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: 1.4fr 0.9fr;
+  gap: 24px;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.25em;
+  font-size: 0.8rem;
+  color: #2563eb;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+h1 {
+  font-size: 2.2rem;
+  margin: 0 0 12px;
+}
+
+.subtext {
+  font-size: 1rem;
+  color: #475569;
+  max-width: 620px;
+}
+
+.auth-card, .panel, .form-card, .course-card {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 10px 35px rgba(15, 23, 42, 0.08);
+  padding: 18px;
+}
+
+.auth-card input, .form-card input, .toolbar input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #dbe7ff;
+  border-radius: 10px;
+  margin-bottom: 10px;
+}
+
+.toggle, .actions, .filters {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+button {
+  border: none;
+  border-radius: 999px;
+  padding: 10px 14px;
+  cursor: pointer;
+  background: #2563eb;
+  color: white;
+}
+
+button.secondary { background: #e2e8f0; color: #0f172a; }
+button.danger { background: #ef4444; }
+button.active { background: #1d4ed8; }
+button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.grid { display: grid; grid-template-columns: 1fr; }
+
+.course-list { display: grid; gap: 12px; margin-top: 12px; }
+.course-card { display: flex; justify-content: space-between; gap: 16px; align-items: center; }
+.course-card h4 { margin: 0 0 6px; }
+.course-card p { margin: 2px 0; color: #475569; }
+.message { margin-top: 8px; font-size: 0.95rem; }
+.message.error { color: #b91c1c; }
+.message.success { color: #15803d; }
+
+@media (max-width: 800px) {
+  .hero { grid-template-columns: 1fr; }
+  .course-card { flex-direction: column; align-items: flex-start; }
+}
