@@ -3,27 +3,30 @@
     <div class="hero-panel">
       <p class="eyebrow">CourseHub</p>
       <h1>Training enrolment dashboard for coordinators and learners.</h1>
-      <p class="subtext">Sign in to manage courses, monitor live seat counts, and enrol learners from one Firestore-backed workspace.</p>
+      <p class="subtext">Sign in to manage courses, review live enrolment activity, and guide learners through a clean training workflow.</p>
       <ul class="feature-list">
         <li>Live course tracking</li>
         <li>Coordinator and learner views</li>
-        <li>Real-time seat updates</li>
+        <li>Course details and enrolment flow</li>
       </ul>
     </div>
 
     <div class="auth-card">
-      <h2>{{ authMode === 'signin' ? 'Welcome back' : 'Create your account' }}</h2>
+      <h2>Welcome back</h2>
       <p class="card-copy">Access the full dashboard after a successful sign-in.</p>
-      <div class="toggle">
-        <button [class.active]="authMode === 'signin'" (click)="authMode = 'signin'">Sign in</button>
-        <button [class.active]="authMode === 'signup'" (click)="authMode = 'signup'">Create account</button>
-      </div>
-      <input [(ngModel)]="email" type="email" placeholder="Email" />
-      <input [(ngModel)]="password" type="password" placeholder="Password" />
-      <div class="actions">
-        <button [disabled]="loading" (click)="authMode === 'signin' ? signIn() : signUp()">
-          {{ authMode === 'signin' ? 'Sign in' : 'Create account' }}
-        </button>
+      <div class="auth-form">
+        <input [(ngModel)]="email" type="email" placeholder="Email" />
+        <input [(ngModel)]="password" type="password" placeholder="Password" />
+        <div class="actions primary-actions">
+          <button [disabled]="loading" (click)="signIn()">Sign in</button>
+          <button class="secondary" [disabled]="loading" (click)="signUp()">Create account</button>
+        </div>
+        <div class="divider">or</div>
+        <div class="actions">
+          <button class="google-btn" type="button" [disabled]="loading" (click)="signInWithGoogle()">
+            <span class="google-icon">G</span> Continue with Google
+          </button>
+        </div>
       </div>
       <p class="hint">Use any email/password. For coordinator access, use coordinator&#64;coursehub.com.</p>
       <p class="message error" *ngIf="error">{{ error }}</p>
@@ -32,21 +35,27 @@
     </div>
   </section>
 
-  <section class="dashboard" *ngIf="user && !selectedCourse">
+  <section class="dashboard" *ngIf="user && viewMode === 'dashboard'">
     <header class="dashboard-header">
       <div>
         <p class="eyebrow">CourseHub dashboard</p>
         <h2>Welcome, {{ user.email }}</h2>
         <p class="subtext">You are signed in as {{ user.role === 'coordinator' ? 'a coordinator' : 'a learner' }}.</p>
       </div>
-      <button (click)="signOut()">Sign out</button>
+      <div class="header-actions">
+        <button *ngIf="user?.role === 'learner'" (click)="viewMyCourses()">Enrolled courses</button>
+        <button (click)="signOut()">Sign out</button>
+      </div>
     </header>
 
     <section class="toolbar">
       <div class="filters">
         <input [(ngModel)]="search" placeholder="Search by title" />
       </div>
-      <button *ngIf="user.role === 'coordinator'" (click)="startCreate()">New course</button>
+      <div class="toolbar-actions">
+        <button (click)="viewMyCourses()">My enrolled courses</button>
+        <button *ngIf="user.role === 'coordinator'" (click)="startCreate()">Create course</button>
+      </div>
     </section>
 
     <section class="grid">
@@ -84,7 +93,39 @@
     </section>
   </section>
 
-  <section class="course-details" *ngIf="user && selectedCourse">
+  <section class="enrolled-courses" *ngIf="user && viewMode === 'enrolled'">
+    <header class="dashboard-header">
+      <div>
+        <p class="eyebrow">Enrolled courses</p>
+        <h2>Your learning tracker</h2>
+        <p class="subtext">See the courses you enrolled in, open one to continue learning, and watch live progress updates.</p>
+      </div>
+      <div class="toolbar-actions">
+        <button (click)="viewMode = 'dashboard'">All courses</button>
+        <button (click)="signOut()">Sign out</button>
+      </div>
+    </header>
+
+    <div class="course-list" *ngIf="enrolledCourses.length; else noEnrolled">
+      <div class="course-card" *ngFor="let course of enrolledCourses">
+        <div>
+          <h4>{{ course.title }}</h4>
+          <p>Trainer: {{ course.trainer }}</p>
+          <p>Progress: {{ progressByCourse[course.id!]?.completedLessons || 0 }} / {{ progressByCourse[course.id!]?.totalLessons || 0 }}</p>
+          <p>{{ getProgressPercentForCourse(course) }}% completed</p>
+        </div>
+        <button (click)="viewCourseDetails(course)">Continue course</button>
+      </div>
+    </div>
+
+    <ng-template #noEnrolled>
+      <div class="panel">
+        <p>No enrolled courses yet. Enroll from the dashboard to start tracking your learning progress.</p>
+      </div>
+    </ng-template>
+  </section>
+
+  <section class="course-details" *ngIf="user && viewMode === 'details' && selectedCourse">
     <header class="details-header">
       <button class="secondary" (click)="backToDashboard()">← Back to courses</button>
       <button (click)="signOut()">Sign out</button>
@@ -97,8 +138,16 @@
       <p class="pill">Enrolled: {{ (enrollmentsByCourse[selectedCourse.id!] || []).length }} / {{ selectedCourse.seats }}</p>
       <p class="details-copy">This course covers the latest best practices, real-world examples and practical tools so learners can move from theory to action quickly.</p>
       <div class="details-actions">
-        <button *ngIf="user.role === 'learner'" [disabled]="isCourseFull(selectedCourse)" (click)="enrollInCourse(selectedCourse)">Enroll now</button>
+        <button *ngIf="user.role === 'learner' && !selectedProgress" [disabled]="isCourseFull(selectedCourse)" (click)="enrollInCourse(selectedCourse)">Enroll now</button>
+        <button *ngIf="user.role === 'learner' && selectedProgress" [disabled]="getProgressPercent() >= 100" (click)="completeLesson(selectedCourse)">Complete lesson</button>
         <button *ngIf="user.role === 'coordinator'" class="secondary" (click)="startEdit(selectedCourse)">Edit course</button>
+      </div>
+      <div class="progress-tracker" *ngIf="user.role === 'learner'">
+        <h4>Learning progress</h4>
+        <div class="progress-bar">
+          <div class="progress-fill" [style.width.%]="getProgressPercent()"></div>
+        </div>
+        <p class="progress-label">{{ getProgressLabel() }}</p>
       </div>
       <div class="course-highlights">
         <h4>Course highlights</h4>

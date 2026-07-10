@@ -4,6 +4,7 @@ export interface Course {
   trainer: string;
   seats: number;
   startAt: string;
+  totalLessons?: number;
 }
 
 export interface Enrollment {
@@ -11,6 +12,15 @@ export interface Enrollment {
   courseId: string;
   learnerId: string;
   at: string;
+}
+
+export interface Progress {
+  id?: string;
+  courseId: string;
+  learnerId: string;
+  completedLessons: number;
+  totalLessons: number;
+  updatedAt: string;
 }
 
 export interface AppUser {

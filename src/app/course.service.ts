@@ -2,11 +2,13 @@ import { Injectable } from '@angular/core';
 import { initializeApp, getApp } from 'firebase/app';
 import {
   Auth,
+  GoogleAuthProvider,
   User,
   createUserWithEmailAndPassword,
   getAuth,
   onAuthStateChanged,
   signInWithEmailAndPassword,
+  signInWithPopup,
   signOut
 } from 'firebase/auth';
 import {
@@ -20,12 +22,13 @@ import {
   getFirestore,
   onSnapshot,
   query,
+  setDoc,
   updateDoc,
   where
 } from 'firebase/firestore';
 import { Observable, of } from 'rxjs';
 import { firebaseConfig } from './firebase-config';
-import { Course, Enrollment, AppUser } from './models';
+import { Course, Enrollment, AppUser, Progress } from './models';
 
 const firebaseApp = initializeApp(firebaseConfig);
 
@@ -58,6 +61,82 @@ export class CourseService {
         })));
       }, observer.error.bind(observer));
       return unsubscribe;
+    });
+  }
+
+  getProgress(courseId: string, learnerId: string): Observable<Progress | null> {
+    return new Observable<Progress | null>((observer) => {
+      const ref = collection(this.firestore, 'progress');
+      const q = query(
+        ref,
+        where('courseId', '==', courseId),
+        where('learnerId', '==', learnerId)
+      );
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const progressDoc = snapshot.docs[0];
+        observer.next(progressDoc ? ({
+          id: progressDoc.id,
+          ...(progressDoc.data() as Omit<Progress, 'id'>)
+        }) : null);
+      }, observer.error.bind(observer));
+      return unsubscribe;
+    });
+  }
+
+  getProgressForLearner(learnerId: string): Observable<Progress[]> {
+    return new Observable<Progress[]>((observer) => {
+      const ref = collection(this.firestore, 'progress');
+      const q = query(ref, where('learnerId', '==', learnerId));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        observer.next(snapshot.docs.map((docSnap) => ({
+          id: docSnap.id,
+          ...(docSnap.data() as Omit<Progress, 'id'>)
+        })));
+      }, observer.error.bind(observer));
+      return unsubscribe;
+    });
+  }
+
+  async updateProgress(progress: Progress): Promise<void> {
+    if (!progress.id) {
+      throw new Error('Progress document id missing');
+    }
+    await updateDoc(doc(this.firestore, 'progress', progress.id), {
+      completedLessons: progress.completedLessons,
+      updatedAt: progress.updatedAt
+    });
+  }
+
+  async createProgress(progress: Omit<Progress, 'id'>): Promise<void> {
+    await addDoc(collection(this.firestore, 'progress'), progress);
+  }
+
+  async completeLesson(courseId: string, learnerId: string, totalLessons: number): Promise<void> {
+    const ref = collection(this.firestore, 'progress');
+    const q = query(
+      ref,
+      where('courseId', '==', courseId),
+      where('learnerId', '==', learnerId)
+    );
+    const snapshot = await getDocs(q);
+    const now = new Date().toISOString();
+    if (snapshot.empty) {
+      await addDoc(collection(this.firestore, 'progress'), {
+        courseId,
+        learnerId,
+        completedLessons: 1,
+        totalLessons,
+        updatedAt: now
+      });
+      return;
+    }
+
+    const docSnap = snapshot.docs[0];
+    const progress = docSnap.data() as Progress;
+    const nextCompleted = Math.min((progress.completedLessons || 0) + 1, totalLessons);
+    await updateDoc(doc(this.firestore, 'progress', docSnap.id), {
+      completedLessons: nextCompleted,
+      updatedAt: now
     });
   }
 
@@ -147,6 +226,11 @@ export class CourseService {
 
   signUp(email: string, password: string): Promise<any> {
     return createUserWithEmailAndPassword(this.auth, email, password);
+  }
+
+  async signInWithGoogle(): Promise<any> {
+    const provider = new GoogleAuthProvider();
+    return signInWithPopup(this.auth, provider);
   }
 
   signOutUser(): Promise<void> {

@@ -72,11 +72,58 @@ h1, h2 { margin: 0 0 12px; }
   margin-bottom: 10px;
 }
 
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .toggle, .actions, .filters {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
   align-items: center;
+}
+
+.primary-actions {
+  margin-top: 6px;
+  justify-content: space-between;
+}
+
+.primary-actions button.secondary {
+  background: #f8fafc;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+}
+
+.divider {
+  text-align: center;
+  color: #64748b;
+  font-size: 0.9rem;
+  margin: 4px 0;
+}
+
+.google-btn {
+  justify-content: center;
+  width: 100%;
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #dbe7ff;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.google-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #2563eb;
+  color: white;
+  font-weight: 700;
 }
 
 button {
@@ -117,6 +164,23 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
   margin-bottom: 16px;
   flex-wrap: wrap;
 }
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+  .enrolled-courses .course-card {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: center;
+    padding: 18px;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+  }
 
 .filters {
   display: flex;
@@ -173,6 +237,13 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
   min-width: 130px;
 }
 
+.header-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .course-details {
   display: grid;
   gap: 20px;
@@ -215,6 +286,32 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.progress-tracker {
+  margin: 20px 0;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 16px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+  margin: 10px 0;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2563eb 0%, #3b82f6 100%);
+  transition: width 0.3s ease;
+}
+
+.progress-label {
+  margin: 0;
+  font-weight: 600;
+  color: #1e293b;
 }
 
 .course-highlights {

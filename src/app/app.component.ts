@@ -2,7 +2,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CourseService } from './course.service';
-import { Course, Enrollment, AppUser } from './models';
+import { Course, Enrollment, AppUser, Progress } from './models';
 
 @Component({
   selector: 'app-root',
@@ -17,8 +17,11 @@ export class AppComponent implements OnInit {
   courses: Course[] = [];
   enrollmentsByCourse: Record<string, Enrollment[]> = {};
   selectedCourse: Course | null = null;
+  selectedProgress: Progress | null = null;
+  myProgress: Progress[] = [];
+  progressByCourse: Record<string, Progress> = {};
+  viewMode: 'dashboard' | 'enrolled' | 'details' = 'dashboard';
   user: AppUser | null = null;
-  authMode: 'signin' | 'signup' = 'signin';
   email = '';
   password = '';
   search = '';
@@ -34,14 +37,30 @@ export class AppComponent implements OnInit {
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
 
   ngOnInit(): void {
+    if (typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
+      const savedEmail = window.localStorage.getItem('coursehub-email') || '';
+      const savedPassword = window.localStorage.getItem('coursehub-password') || '';
+      if (savedEmail) {
+        this.email = savedEmail;
+      }
+      if (savedPassword) {
+        this.password = savedPassword;
+      }
+    }
+
     this.courseService.authState().subscribe(async (user) => {
       this.loading = true;
       this.courseService.getUserRole(user).subscribe(async (role) => {
         this.user = role;
-        this.loading = false;
         if (role) {
           await this.courseService.ensureSampleCourses();
           this.loadCourses();
+          if (role.role === 'learner') {
+            this.subscribeLearnerProgress(role.uid);
+          }
+          this.loading = false;
+        } else {
+          this.loading = false;
         }
       });
     });
@@ -51,6 +70,10 @@ export class AppComponent implements OnInit {
     this.error = '';
     this.success = '';
     try {
+      if (typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
+        window.localStorage.setItem('coursehub-email', this.email);
+        window.localStorage.setItem('coursehub-password', this.password);
+      }
       await this.courseService.signIn(this.email, this.password);
       this.showToast('Signed in successfully', 'success');
     } catch (err: any) {
@@ -62,10 +85,29 @@ export class AppComponent implements OnInit {
     this.error = '';
     this.success = '';
     try {
+      if (typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
+        window.localStorage.setItem('coursehub-email', this.email);
+        window.localStorage.setItem('coursehub-password', this.password);
+      }
       await this.courseService.signUp(this.email, this.password);
       this.showToast('Account created', 'success');
     } catch (err: any) {
       this.error = err?.message ?? 'Unable to create account';
+    }
+  }
+
+  async signInWithGoogle(): Promise<void> {
+    this.error = '';
+    this.success = '';
+    this.loading = true;
+    try {
+      await this.courseService.signInWithGoogle();
+      this.showToast('Signed in with Google', 'success');
+    } catch (err: any) {
+      this.error = err?.message ?? 'Unable to sign in with Google';
+      this.showToast(this.error, 'error');
+    } finally {
+      this.loading = false;
     }
   }
 
@@ -74,7 +116,11 @@ export class AppComponent implements OnInit {
     this.user = null;
     this.courses = [];
     this.enrollmentsByCourse = {};
+    this.myProgress = [];
+    this.progressByCourse = {};
     this.selectedCourse = null;
+    this.selectedProgress = null;
+    this.viewMode = 'dashboard';
   }
 
   loadCourses(): void {
@@ -92,10 +138,47 @@ export class AppComponent implements OnInit {
 
   viewCourseDetails(course: Course): void {
     this.selectedCourse = course;
+    this.viewMode = 'details';
+    if (course.id && this.progressByCourse[course.id]) {
+      this.selectedProgress = this.progressByCourse[course.id];
+    } else {
+      this.selectedProgress = null;
+    }
   }
 
   backToDashboard(): void {
+    this.viewMode = 'dashboard';
     this.selectedCourse = null;
+    this.selectedProgress = null;
+  }
+
+  viewMyCourses(): void {
+    this.viewMode = 'enrolled';
+    this.selectedCourse = null;
+    this.selectedProgress = null;
+    // Reload course data to ensure enrolled courses are properly displayed
+    if (!this.courses.length) {
+      this.loadCourses();
+    }
+  }
+
+  subscribeLearnerProgress(learnerId: string): void {
+    this.courseService.getProgressForLearner(learnerId).subscribe((progress) => {
+      this.myProgress = progress;
+      this.progressByCourse = progress.reduce((map, entry) => {
+        if (entry.courseId) {
+          map[entry.courseId] = entry;
+        }
+        return map;
+      }, {} as Record<string, Progress>);
+      if (this.selectedCourse?.id && this.progressByCourse[this.selectedCourse.id]) {
+        this.selectedProgress = this.progressByCourse[this.selectedCourse.id];
+      }
+      // Ensure courses are loaded when progress updates
+      if (this.courses.length === 0) {
+        this.loadCourses();
+      }
+    });
   }
 
   async enrollInCourse(course: Course): Promise<void> {
@@ -104,13 +187,31 @@ export class AppComponent implements OnInit {
       return;
     }
     try {
+      this.loading = true;
       await this.courseService.enrollLearner(course.id!, this.user.uid);
       this.showToast('Enrolled successfully', 'success');
-      this.backToDashboard();
+      if (this.user.role === 'learner') {
+        const totalLessons = course.totalLessons || 5;
+        const newProgress: Progress = {
+          courseId: course.id!,
+          learnerId: this.user.uid,
+          completedLessons: 0,
+          totalLessons,
+          updatedAt: new Date().toISOString()
+        };
+        await this.courseService.createProgress(newProgress);
+        if (course.id) {
+          this.progressByCourse[course.id] = newProgress;
+          this.myProgress = [...this.myProgress, newProgress];
+        }
+      }
       this.loadCourses();
+      this.backToDashboard();
     } catch (err: any) {
       this.error = err?.message ?? 'Enrollment failed';
       this.showToast(this.error, 'error');
+    } finally {
+      this.loading = false;
     }
   }
 
@@ -184,6 +285,14 @@ export class AppComponent implements OnInit {
     }
     try {
       await this.courseService.enrollLearner(course.id!, this.user.uid);
+      const totalLessons = course.totalLessons || 5;
+      await this.courseService.createProgress({
+        courseId: course.id!,
+        learnerId: this.user.uid,
+        completedLessons: 0,
+        totalLessons,
+        updatedAt: new Date().toISOString()
+      });
       this.success = 'Enrolled successfully';
       this.loadCourses();
     } catch (err: any) {
@@ -199,6 +308,17 @@ export class AppComponent implements OnInit {
     });
   }
 
+  get enrolledCourses(): Course[] {
+    return this.myProgress
+      .map((progress) => this.courses.find((course) => course.id === progress.courseId))
+      .filter((course): course is Course => !!course)
+      .sort((a, b) => {
+        const progressA = this.progressByCourse[a.id!]?.completedLessons || 0;
+        const progressB = this.progressByCourse[b.id!]?.completedLessons || 0;
+        return progressB - progressA;
+      });
+  }
+
   getRemainingSeats(course: Course): number {
     const enrollments = this.enrollmentsByCourse[course.id!] ?? [];
     return course.seats - enrollments.length;
@@ -206,5 +326,48 @@ export class AppComponent implements OnInit {
 
   isCourseFull(course: Course): boolean {
     return this.getRemainingSeats(course) <= 0;
+  }
+
+  getProgressPercent(): number {
+    if (!this.selectedProgress) {
+      return 0;
+    }
+    return Math.round((this.selectedProgress.completedLessons / this.selectedProgress.totalLessons) * 100);
+  }
+
+  getProgressLabel(): string {
+    if (!this.selectedProgress) {
+      return 'Not started';
+    }
+    const percent = this.getProgressPercent();
+    return percent >= 100 ? 'Completed' : `${percent}% complete`;
+  }
+
+  getProgressPercentForCourse(course: Course): number {
+    const progress = course.id ? this.progressByCourse[course.id] : null;
+    if (!progress) {
+      return 0;
+    }
+    return Math.round((progress.completedLessons / progress.totalLessons) * 100);
+  }
+
+  async completeLesson(course: Course): Promise<void> {
+    if (!this.user || !this.selectedProgress) {
+      return;
+    }
+    const totalLessons = this.selectedProgress.totalLessons;
+    await this.courseService.completeLesson(course.id!, this.user.uid, totalLessons);
+    this.showToast('Lesson completed. Progress updated.', 'success');
+    if (course.id && this.progressByCourse[course.id]) {
+      this.selectedProgress = {
+        ...this.selectedProgress,
+        completedLessons: Math.min(this.selectedProgress.completedLessons + 1, totalLessons),
+        updatedAt: new Date().toISOString()
+      };
+      this.progressByCourse[course.id] = this.selectedProgress;
+      this.myProgress = this.myProgress.map((progress) =>
+        progress.courseId === course.id ? this.selectedProgress! : progress
+      );
+    }
   }
 }
