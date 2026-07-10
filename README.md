@@ -5,8 +5,8 @@ CourseHub is a simple Angular + Firebase training enrolment dashboard for coordi
 ## Features
 - Firebase Auth sign-in with separate coordinator and learner views
 - Create, edit, and delete courses
-- Enrol learners into courses with seat limits enforced
-- Live dashboard from Firestore with search and open-seat filtering
+- Enrol learners into courses from the dashboard
+- Live dashboard from Firestore with search and course details
 
 ## Demo login
 - Coordinator: coordinator@coursehub.com / password123
