@@ -1,67 +1,118 @@
 ﻿<main class="app-shell">
-  <section class="hero">
-    <div>
+  <section class="login-screen" *ngIf="!user">
+    <div class="hero-panel">
       <p class="eyebrow">CourseHub</p>
       <h1>Training enrolment dashboard for coordinators and learners.</h1>
-      <p class="subtext">Manage courses, watch live seat counts, and enrol learners from one Firestore-backed workspace.</p>
+      <p class="subtext">Sign in to manage courses, monitor live seat counts, and enrol learners from one Firestore-backed workspace.</p>
+      <ul class="feature-list">
+        <li>Live course tracking</li>
+        <li>Coordinator and learner views</li>
+        <li>Real-time seat updates</li>
+      </ul>
     </div>
+
     <div class="auth-card">
-      <h2>{{ user ? 'Welcome back' : 'Sign in' }}</h2>
+      <h2>{{ authMode === 'signin' ? 'Welcome back' : 'Create your account' }}</h2>
+      <p class="card-copy">Access the full dashboard after a successful sign-in.</p>
       <div class="toggle">
         <button [class.active]="authMode === 'signin'" (click)="authMode = 'signin'">Sign in</button>
         <button [class.active]="authMode === 'signup'" (click)="authMode = 'signup'">Create account</button>
       </div>
-      <input [(ngModel)]="email" placeholder="Email" />
+      <input [(ngModel)]="email" type="email" placeholder="Email" />
       <input [(ngModel)]="password" type="password" placeholder="Password" />
       <div class="actions">
-        <button *ngIf="!user" (click)="authMode === 'signin' ? signIn() : signUp()">{{ authMode === 'signin' ? 'Sign in' : 'Create account' }}</button>
-        <button *ngIf="user" (click)="signOut()">Sign out</button>
+        <button [disabled]="loading" (click)="authMode === 'signin' ? signIn() : signUp()">
+          {{ authMode === 'signin' ? 'Sign in' : 'Create account' }}
+        </button>
       </div>
-      <p class="hint">Demo coordinator: coordinator&#64;coursehub.com / password123</p>
+      <p class="hint">Use any email/password. For coordinator access, use coordinator&#64;coursehub.com.</p>
       <p class="message error" *ngIf="error">{{ error }}</p>
       <p class="message success" *ngIf="success">{{ success }}</p>
+      <p class="message info" *ngIf="loading">Checking your account...</p>
     </div>
   </section>
 
-  <section class="toolbar" *ngIf="user">
-    <div class="filters">
-      <input [(ngModel)]="search" placeholder="Search by title" />
-      <label><input type="checkbox" [(ngModel)]="showOnlyOpen" /> Open seats only</label>
-    </div>
-    <button *ngIf="user.role === 'coordinator'" (click)="startCreate()">New course</button>
-  </section>
-
-  <section class="grid" *ngIf="user">
-    <div class="panel">
-      <h3>Courses</h3>
-      <div *ngIf="editingCourse || formCourse.title !== undefined" class="form-card">
-        <h4>{{ editingCourse ? 'Edit course' : 'Create course' }}</h4>
-        <input [(ngModel)]="formCourse.title" placeholder="Title" />
-        <input [(ngModel)]="formCourse.trainer" placeholder="Trainer" />
-        <input [(ngModel)]="formCourse.seats" type="number" min="1" placeholder="Seats" />
-        <input [(ngModel)]="formCourse.startAt" type="date" />
-        <div class="actions">
-          <button (click)="saveCourse()">Save</button>
-          <button class="secondary" (click)="editingCourse = null; formCourse = {}">Cancel</button>
-        </div>
+  <section class="dashboard" *ngIf="user && !selectedCourse">
+    <header class="dashboard-header">
+      <div>
+        <p class="eyebrow">CourseHub dashboard</p>
+        <h2>Welcome, {{ user.email }}</h2>
+        <p class="subtext">You are signed in as {{ user.role === 'coordinator' ? 'a coordinator' : 'a learner' }}.</p>
       </div>
+      <button (click)="signOut()">Sign out</button>
+    </header>
 
-      <div class="course-list" *ngFor="let course of filteredCourses">
-        <div class="course-card">
-          <div>
-            <h4>{{ course.title }}</h4>
-            <p>Trainer: {{ course.trainer }}</p>
-            <p>Starts: {{ course.startAt }}</p>
-            <p>Enrolled: {{ (enrollmentsByCourse[course.id!] || []).length }} / {{ course.seats }}</p>
-            <p>Seats left: {{ getRemainingSeats(course) }}</p>
-          </div>
+    <section class="toolbar">
+      <div class="filters">
+        <input [(ngModel)]="search" placeholder="Search by title" />
+      </div>
+      <button *ngIf="user.role === 'coordinator'" (click)="startCreate()">New course</button>
+    </section>
+
+    <section class="grid">
+      <div class="panel">
+        <h3>Courses</h3>
+        <div *ngIf="editingCourse || formCourse.title !== undefined" class="form-card">
+          <h4>{{ editingCourse ? 'Edit course' : 'Create course' }}</h4>
+          <input [(ngModel)]="formCourse.title" placeholder="Title" />
+          <input [(ngModel)]="formCourse.trainer" placeholder="Trainer" />
+          <input [(ngModel)]="formCourse.seats" type="number" min="1" placeholder="Seats" />
+          <input [(ngModel)]="formCourse.startAt" type="date" />
           <div class="actions">
-            <button *ngIf="user.role === 'learner'" [disabled]="isCourseFull(course)" (click)="enroll(course)">Enroll</button>
-            <button *ngIf="user.role === 'coordinator'" class="secondary" (click)="startEdit(course)">Edit</button>
-            <button *ngIf="user.role === 'coordinator'" class="danger" (click)="deleteCourse(course.id!)">Delete</button>
+            <button (click)="saveCourse()">Save</button>
+            <button class="secondary" (click)="editingCourse = null; formCourse = {}">Cancel</button>
+          </div>
+        </div>
+
+        <div class="course-list" *ngFor="let course of filteredCourses">
+          <div class="course-card">
+            <div>
+              <h4>{{ course.title }}</h4>
+              <p>Trainer: {{ course.trainer }}</p>
+              <p>Starts: {{ course.startAt }}</p>
+              <p>Enrolled: {{ (enrollmentsByCourse[course.id!] || []).length }} / {{ course.seats }}</p>
+              <p>Seats left: {{ getRemainingSeats(course) }}</p>
+            </div>
+            <div class="actions">
+              <button *ngIf="user.role === 'learner'" [disabled]="isCourseFull(course)" (click)="viewCourseDetails(course)">View details</button>
+              <button *ngIf="user.role === 'coordinator'" class="secondary" (click)="startEdit(course)">Edit</button>
+              <button *ngIf="user.role === 'coordinator'" class="danger" (click)="deleteCourse(course.id!)">Delete</button>
+            </div>
           </div>
         </div>
       </div>
+    </section>
+  </section>
+
+  <section class="course-details" *ngIf="user && selectedCourse">
+    <header class="details-header">
+      <button class="secondary" (click)="backToDashboard()">← Back to courses</button>
+      <button (click)="signOut()">Sign out</button>
+    </header>
+    <div class="details-card">
+      <h3>{{ selectedCourse.title }}</h3>
+      <p class="pill">Trainer: {{ selectedCourse.trainer }}</p>
+      <p class="pill">Start date: {{ selectedCourse.startAt }}</p>
+      <p class="pill">Seats: {{ selectedCourse.seats }}</p>
+      <p class="pill">Enrolled: {{ (enrollmentsByCourse[selectedCourse.id!] || []).length }} / {{ selectedCourse.seats }}</p>
+      <p class="details-copy">This course covers the latest best practices, real-world examples and practical tools so learners can move from theory to action quickly.</p>
+      <div class="details-actions">
+        <button *ngIf="user.role === 'learner'" [disabled]="isCourseFull(selectedCourse)" (click)="enrollInCourse(selectedCourse)">Enroll now</button>
+        <button *ngIf="user.role === 'coordinator'" class="secondary" (click)="startEdit(selectedCourse)">Edit course</button>
+      </div>
+      <div class="course-highlights">
+        <h4>Course highlights</h4>
+        <ul>
+          <li>Comprehensive trainer-led sessions</li>
+          <li>Interactive assignments and live feedback</li>
+          <li>Real-time seat availability updates</li>
+        </ul>
+      </div>
     </div>
   </section>
+
+  <div class="toast" *ngIf="toastMessage" [ngClass]="toastType">
+    <span>{{ toastMessage }}</span>
+    <button class="toast-close" (click)="hideToast()">×</button>
+  </div>
 </main>

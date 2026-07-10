@@ -16,12 +16,12 @@ export class AppComponent implements OnInit {
 
   courses: Course[] = [];
   enrollmentsByCourse: Record<string, Enrollment[]> = {};
+  selectedCourse: Course | null = null;
   user: AppUser | null = null;
   authMode: 'signin' | 'signup' = 'signin';
   email = '';
   password = '';
   search = '';
-  showOnlyOpen = false;
 
   editingCourse: Course | null = null;
   formCourse: Partial<Course> = {};
@@ -29,14 +29,18 @@ export class AppComponent implements OnInit {
   loading = false;
   error = '';
   success = '';
+  toastMessage = '';
+  toastType: 'success' | 'error' | 'info' = 'success';
+  private toastTimer: ReturnType<typeof setTimeout> | null = null;
 
   ngOnInit(): void {
-    this.courseService.authState().subscribe((user) => {
+    this.courseService.authState().subscribe(async (user) => {
       this.loading = true;
-      this.courseService.getUserRole(user).subscribe((role) => {
+      this.courseService.getUserRole(user).subscribe(async (role) => {
         this.user = role;
         this.loading = false;
         if (role) {
+          await this.courseService.ensureSampleCourses();
           this.loadCourses();
         }
       });
@@ -48,7 +52,7 @@ export class AppComponent implements OnInit {
     this.success = '';
     try {
       await this.courseService.signIn(this.email, this.password);
-      this.success = 'Signed in successfully';
+      this.showToast('Signed in successfully', 'success');
     } catch (err: any) {
       this.error = err?.message ?? 'Unable to sign in';
     }
@@ -59,7 +63,7 @@ export class AppComponent implements OnInit {
     this.success = '';
     try {
       await this.courseService.signUp(this.email, this.password);
-      this.success = 'Account created';
+      this.showToast('Account created', 'success');
     } catch (err: any) {
       this.error = err?.message ?? 'Unable to create account';
     }
@@ -70,6 +74,7 @@ export class AppComponent implements OnInit {
     this.user = null;
     this.courses = [];
     this.enrollmentsByCourse = {};
+    this.selectedCourse = null;
   }
 
   loadCourses(): void {
@@ -83,6 +88,47 @@ export class AppComponent implements OnInit {
         }
       });
     });
+  }
+
+  viewCourseDetails(course: Course): void {
+    this.selectedCourse = course;
+  }
+
+  backToDashboard(): void {
+    this.selectedCourse = null;
+  }
+
+  async enrollInCourse(course: Course): Promise<void> {
+    if (!this.user) {
+      this.error = 'Please sign in first';
+      return;
+    }
+    try {
+      await this.courseService.enrollLearner(course.id!, this.user.uid);
+      this.showToast('Enrolled successfully', 'success');
+      this.backToDashboard();
+      this.loadCourses();
+    } catch (err: any) {
+      this.error = err?.message ?? 'Enrollment failed';
+      this.showToast(this.error, 'error');
+    }
+  }
+
+  showToast(message: string, type: 'success' | 'error' | 'info' = 'success'): void {
+    this.toastMessage = message;
+    this.toastType = type;
+    if (this.toastTimer) {
+      clearTimeout(this.toastTimer);
+    }
+    this.toastTimer = setTimeout(() => this.hideToast(), 4000);
+  }
+
+  hideToast(): void {
+    this.toastMessage = '';
+    if (this.toastTimer) {
+      clearTimeout(this.toastTimer);
+      this.toastTimer = null;
+    }
   }
 
   startCreate(): void {
@@ -149,8 +195,7 @@ export class AppComponent implements OnInit {
     const term = this.search.toLowerCase();
     return this.courses.filter((course) => {
       const matchesTitle = course.title.toLowerCase().includes(term);
-      const openSeats = this.getRemainingSeats(course) > 0;
-      return matchesTitle && (!this.showOnlyOpen || openSeats);
+      return matchesTitle;
     });
   }
 

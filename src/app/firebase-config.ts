@@ -1,8 +1,8 @@
 export const firebaseConfig = {
-  apiKey: 'AIzaSyDqaV9A0tXx4p4l6qk0tGfR7vR9H5cQwE5',
-  authDomain: 'coursehub-demo-12345.firebaseapp.com',
-  projectId: 'coursehub-demo-12345',
-  storageBucket: 'coursehub-demo-12345.firebasestorage.app',
-  messagingSenderId: '123456789012',
-  appId: '1:123456789012:web:abcdef1234567890'
+  apiKey: 'AIzaSyC4MYFCsgFq5NwERVYaCZUBA6c1QYSnrGo',
+  authDomain: 'coursehub-20260709-01.firebaseapp.com',
+  projectId: 'coursehub-20260709-01',
+  storageBucket: 'coursehub-20260709-01.firebasestorage.app',
+  messagingSenderId: '796682115536',
+  appId: '1:796682115536:web:fe9f88f29f8db5793f81d5'
 };

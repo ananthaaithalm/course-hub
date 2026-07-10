@@ -105,6 +105,42 @@ export class CourseService {
     });
   }
 
+  async ensureSampleCourses(): Promise<void> {
+    const coursesSnapshot = await getDocs(collection(this.firestore, 'courses'));
+    if (!coursesSnapshot.empty) {
+      return;
+    }
+
+    const sampleCourses = [
+      {
+        title: 'Agile Project Management',
+        trainer: 'Priya Sharma',
+        seats: 25,
+        startAt: '2026-08-05'
+      },
+      {
+        title: 'Advanced TypeScript',
+        trainer: 'Ravi Patel',
+        seats: 30,
+        startAt: '2026-08-15'
+      },
+      {
+        title: 'Design Thinking Workshop',
+        trainer: 'Maya Nair',
+        seats: 20,
+        startAt: '2026-09-02'
+      },
+      {
+        title: 'Cloud Solutions Fundamentals',
+        trainer: 'Amit Verma',
+        seats: 28,
+        startAt: '2026-08-22'
+      }
+    ];
+
+    await Promise.all(sampleCourses.map((course) => addDoc(collection(this.firestore, 'courses'), course)));
+  }
+
   signIn(email: string, password: string): Promise<any> {
     return signInWithEmailAndPassword(this.auth, email, password);
   }
